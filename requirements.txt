@@ -1,0 +1,5 @@
+## The following requirements were added by pip --freeze:
+Flask==0.10.1
+Flask-Bootstrap==3.1.1.2
+Flask-WTF==0.9.5
+python-dateutil==2.2

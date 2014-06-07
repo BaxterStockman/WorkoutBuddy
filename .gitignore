@@ -1,0 +1,13 @@
+*.egg-info/
+*.ropeproject/
+*.pyc
+*.pyo
+*.DS_Store
+*.swp
+*.idea
+*.project
+*.pydevproject
+*.kpf
+venv
+
+secret_keys.py
