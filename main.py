@@ -86,7 +86,7 @@ def index():
         user = get_current_user()
         report = user.report
 
-
+    return(workouts)
     return flask.render_template('index.html', workouts=workouts, report=report)
 
 
@@ -332,6 +332,12 @@ def analyze():
         user.report = report
         user.put()
     return redirect(url_for('index'))
+
+
+# Delete the session if something's gone horribly wrong
+@app.route('/nuke')
+def nuke():
+    session.invalidate()
 
 
 @app.route('/test', methods=["GET", "POST"])
