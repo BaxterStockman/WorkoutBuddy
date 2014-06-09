@@ -1,7 +1,6 @@
 #import gevent.monkey; gevent.monkey.patch_all()
 import flask
 import os
-import pprint
 import simplejson as json
 import sys
 
@@ -86,8 +85,7 @@ def index():
         user = get_current_user()
         report = user.report
 
-    return(workouts)
-    #return flask.render_template('index.html', workouts=workouts, report=report)
+    return flask.render_template('index.html', workouts=workouts, report=report)
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -98,7 +96,6 @@ def login():
 
     if form.validate_on_submit():
         user = User.query(User.username == form.username.data).get()
-        #session['username'] = form.username.data
         if user is None:
             form.username.errors.append('Unknown username')
             return flask.render_template(template, header=header, form=form)
@@ -155,17 +152,8 @@ def signup():
 
 @app.route('/workout', methods=["GET", "POST"])
 def add_workout():
-    # remember: url_for('add', username=session.get('username'))
     form = WorkoutForm()
-    # Should this just be:
-    # upload_url = blobstore.create_upload_url('/add')
-    # ?
     upload_url = blobstore.create_upload_url(url_for('add_workout'))
-    #print(upload_url)
-    print("UPLOAD URL: {}".format(upload_url))
-    for item in request.files:
-        print("FILE ITEM: {0}".format(pprint.pformat(item)))
-        print("FILE HEADERS: {0}".format(pprint.pformat(item)))
 
     if form.validate_on_submit():
         photo_url, blob_key = get_photo_url_and_blob_key()
@@ -194,9 +182,6 @@ def add_stats():
     # remember: url_for('add', username=session.get('username'))
     form = StatsForm()
     if form.validate_on_submit():
-        print_form_data(form, print_type=True)
-        #print(type(form.height_inches.data))
-
         # Create new stats object
         user_key_str = session.get('user_key_str')
 
@@ -206,7 +191,6 @@ def add_stats():
 
         stats = create_stats(form, user_key=ndb.Key(urlsafe=user_key_str))
         stats_dict = stats_to_dict(stats)
-        print(stats_dict)
         session['stats'] = stats_dict
 
         user = get_current_user()
@@ -230,13 +214,8 @@ def add_stats():
 def upload():
     failed = False
 
-    if hasattr(request, 'files'):
-        print("GOT FILES!")
-
     # Need 'force=True' for file upload
     data = request.get_json(force=True)
-    for k, v in data.iteritems():
-        print("{0}: {1}".format(k, v))
 
     # So very, very insecure
     username = data.get('username')
@@ -370,11 +349,8 @@ def get_photo_url_and_blob_key():
     if 'photo' in request.files:
         photo = request.files['photo']
         parsed_ct = parse_options_header(photo.content_type)
-        print("CONTENT-TYPE: {0}".format(photo.content_type))
-        print("PARSED_CT: {0}".format(parsed_ct))
         try:
             blob_key = parsed_ct[1]['blob-key']
-            print(blob_key)
             photo_url = get_serving_url(blob_key)
         except:
             print("Failed to obtain photo url: {0}".format(sys.exc_info()[0]))
@@ -444,7 +420,6 @@ def stats_to_dict(stats):
 
 
 def create_user(form, current_stats=None, starting_stats=None):
-    pprint.pprint(form.data)
     try:
         user = User(
             username=form.username.data,
