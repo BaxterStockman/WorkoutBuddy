@@ -87,7 +87,7 @@ def index():
         report = user.report
 
     return(workouts)
-    return flask.render_template('index.html', workouts=workouts, report=report)
+    #return flask.render_template('index.html', workouts=workouts, report=report)
 
 
 @app.route('/login', methods=["GET", "POST"])
