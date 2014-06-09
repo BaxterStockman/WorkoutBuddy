@@ -1,92 +1,100 @@
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    ForeignKey,
-    Integer,
-    Interval,
-    String,
-    Table
-)
-from sqlalchemy.orm import backref, relationship
-from database import Base
+from google.appengine.ext import ndb
 
 
-user_event = Table(
-    'user_event',
-    Base.metadata,
-    Column('onid', Integer, ForeignKey('user.onid')),
-    Column('eid', Integer, ForeignKey('event.id')),
-)
+class Stats(ndb.Model):
+    user_key = ndb.KeyProperty()
+    date = ndb.DateTimeProperty(auto_now_add=True)
+    weight = ndb.FloatProperty()
+    height_inches = ndb.IntegerProperty()
+    height_feet = ndb.IntegerProperty()
+    body_fat = ndb.FloatProperty(validator=lambda prop, value: value >= 0 and
+                                 value <= 100)
+    height = None
+    bmi = None
 
 
-user_group = Table(
-    'user_group',
-    Base.metadata,
-    Column('onid', Integer, ForeignKey('user.onid')),
-    Column('gid', Integer, ForeignKey('group.id')),
-)
+    def _assign_computed_stats(self):
+        self.height = self._height_str()
+        self.bmi = self._calc_bmi()
+
+    def _height_str(self):
+        if self.height_inches is None or self.height_feet is None:
+            return None
+
+        return "{}\'{}\"".format(self.height_feet, self.height_inches)
+
+    def _calc_bmi(self):
+        if self.height_inches is None or self.height_feet is None or self.weight is None:
+            return None
+
+        total_height = self.height_feet * 12 + self.height_inches
+        bmi_raw = (self.weight / (total_height * total_height)) * 703
+        return round(bmi_raw, 2)
+
+    @classmethod
+    def _post_get_hook(cls, key, future):
+        obj = future.get_result()
+        if obj is not None:
+            obj._assign_computed_stats()
+
+    def _pre_put_hook(self):
+        self.weight = round(self.weight, 2)
+        self.body_fat = round(self.body_fat, 2)
+
+    def _post_put_hook(self, future):
+        self._assign_computed_stats()
 
 
-class User(Base):
-    __tablename__ = 'user'
-    onid = Column(String, primary_key=True, unique=True, index=True)
-    fname = Column(String(40))
-    lname = Column(String(40))
-    dept = Column(String(40), index=True, nullable=True)
-    events = relationship("Event",
-                          secondary=user_event,
-                          backref=backref('user', lazy='dynamic'),
-                          lazy='dynamic')
-    groups = relationship("Group",
-                          secondary=user_group,
-                          backref=backref('user', lazy='dynamic'),
-                          lazy='dynamic')
+class User(ndb.Model):
+    username = ndb.StringProperty(required=True)
+    password = ndb.StringProperty(required=True)
+    email = ndb.StringProperty(required=True)
+    current_stats = ndb.StructuredProperty(Stats)
+    starting_stats = ndb.StructuredProperty(Stats)
+    report = ndb.TextProperty()
 
-    def __init__(self, onid=None, fname=None, lname=None, dept=None,
-                 email=None):
-        self.onid = onid
-        self.fname = fname
-        self.lname = lname
-        self.dept = dept
-        self.email = email
+    def _assign_current_stats(self):
+        if self.current_stats is not None:
+            self.weight = self.current_stats.weight
+            self.height = self.current_stats.height
+            self.bmi = self.current_stats.bmi
+            self.body_fat = self.current_stats.body_fat
 
-    def __repr__(self):
-        return '<User %r %r>' % (self.fname, self.lname)
+    def _get_weight(self):
+        if self.current_stats is None:
+            return None
+        return self.current_stats.weight
 
+    def _height_str(self):
+        if self.current_stats is None:
+            return None
+        return self.current_stats.height()
 
-class Event(Base):
-    __tablename__ = 'event'
-    id = Column(Integer, primary_key=True)
-    start_date = Column(DateTime, index=True)
-    end_date = Column(DateTime)
-    attrb_name = Column(String(40))
-    location = Column(String(40))
-    description = Column(String(80))
-    allday = Column(Boolean, default=False)
-    duration = Column(Interval)
+    def _calc_body_fat(self):
+        if self.current_stats is None:
+            return None
+        return self.current_stats.body_fat
 
-    def __init__(self, start_date=None, end_date=None, attrb_name=None,
-                 location=None, description=None, allday=False):
-        self.start_date = start_date
-        self.end_date = end_date
-        self.attrb_name = attrb_name
-        self.location = location
-        self.description = description
-        self.allday = allday
+    def _calc_bmi(self):
+        if self.current_stats is None:
+            return None
+        return self.current_stats.bmi()
 
-    def __repr__(self):
-        return '<Event %r - %r>' % (self.start_date, self.end_date)
+    @classmethod
+    def _post_get_hook(cls, key, future):
+        obj = future.get_result()
+        if obj is not None:
+            obj._assign_current_stats()
+
+    def _post_put_hook(self, future):
+        self._assign_current_stats()
 
 
-class Group(Base):
-    __tablename__ = 'group'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(40))
-
-    def __init__(self, name=None):
-        self.name = name
-
-    def __repr__(self):
-
-        return '<Group %r>' % (self.name)
+class Workout(ndb.Model):
+    user_key = ndb.KeyProperty()
+    name = ndb.StringProperty()
+    updated = ndb.DateTimeProperty(auto_now=True)
+    blob_key = ndb.BlobKeyProperty()
+    photo_url = ndb.TextProperty()
+    exercises = ndb.JsonProperty()
+    text = ndb.TextProperty()

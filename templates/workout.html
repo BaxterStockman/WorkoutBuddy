@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% import 'bootstrap/wtf.html' as wtf %}
+
+{% block page_content %}
+{{ macros.page_header(header) }}
+
+<div class='row'>
+    <div class="col-md-12">
+        <form id="workout" method="POST" action="{{ upload_url }}" enctype="multipart/form-data">
+            {{ form.csrf_token }}
+            <div class="form-group">
+                <div class="input-group">
+                    {{ form.name.label }}
+                    {{ form.name(class_="form-control", size="100", maxlength="100") }}
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="input-group">
+                    {{ form.photo.label }} {{ form.photo }}
+                </div>
+            </div>
+
+            {{ form.workout_set }}
+
+        </form>
+        <div class="panel panel-default">
+            <div id="exercises-heading" class="panel-heading"><strong>Add an exercise</strong></div>
+            <div class="panel-body">
+                <form action="" id="add_exercise" class="form-inline">
+                    <div class="form-group">
+                        <label for'exercise'></label>
+                        <input type='text' class = 'form-control' name='exercise' id='exercise' placeholder='Exercise name'>
+                    </div>
+                    <div class="form-group">
+                        <label for'sets'></label>
+                        <input type='number' class = 'form-control' name='sets' id='sets' placeholder='Sets'>
+                    </div>
+                    <div class="form-group">
+                        <label for'reps'></label>
+                        <input type='number' class = 'form-control' name='reps' id='reps' placeholder='Reps'>
+                    </div>
+                    <button class='btn btn-default' type='button' id='commit_exercise'>Add</button>
+                </form>
+                <div class="table-responsive voffset4">
+                    <table class="table table-striped table-hover" id="exercises">
+                    </table>
+                </div>
+            </div>
+        </div>
+        <a href="#" id="commit_link" class="btn btn-primary">Submit</a>
+        <a href="{{ url_for('index') }}" id="cancel" class="btn btn-default">Cancel</a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='assets/css/search.css')}}'>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script type="text/javascript">
+(function($, document, window) {
+    $(document).ready(function() {
+        $("#commit_link").click(function(event) {
+            var exercises = [];
+            $("#exercises").find('tr').each(function(index) {
+                var data = {};
+                $(this).children('td').each(function(index) {
+                    data[$(this).attr('datatype')] = $(this).text();
+                });
+                exercises.push(data);
+            });
+
+            if(exercises.length < 1) {
+                $("#exercises-heading").addClass('has-error');
+                $("#exercises-heading").html("<strong>Add at least one exercise<strong>").css('color', 'red');
+                //alert("Must add at least one exercise");
+                event.preventDefault();
+                return;
+            }
+
+            console.log(exercises)
+            console.log(JSON.stringify(exercises))
+            $("#workout_set").val(JSON.stringify(exercises));
+            //$("#workout_set").val(exercises.join(','));
+            //$("#workout_set").val(exercises);
+            console.log($("#workout_set").val());
+
+            $("#workout").submit();
+        });
+
+        $("#commit_exercise").click(function(event) {
+            var has_error = false;
+                tr = $('<tr/>');
+
+            $("#add_exercise").find("input").each(function(index) {
+                var val = $(this).val();
+                $(this).parent().removeClass('has-error');
+                if(val.length == 0) {
+                    has_error = true;
+                    // Don't know why this isn't working...
+                    //$("label[for='" + $(this).attr('id') + "']").text('Value is mandatory');
+                    $(this).parent().addClass("has-error");
+                }
+
+                var td = $('<td/>', {
+                    'text': $(this).val(),
+                    'datatype': $(this).attr('id'),
+                });
+
+                tr.append(td);
+            });
+
+            if(has_error) {
+                return;
+            }
+
+            var trash = $('<a/>', {
+                class: 'glyphicon glyphicon-trash',
+                click: function() {
+                    $(this).parents().eq(1).remove();
+                }
+            });
+
+            var trash_td = $('<td/>', {
+                html: trash,
+            });
+
+            tr.append(trash_td);
+
+            $("#exercises").append(tr);
+
+            event.preventDefault();
+        });
+    });
+})(jQuery, document, window);
+</script>
+{% endblock %}

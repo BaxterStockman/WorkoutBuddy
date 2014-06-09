@@ -13,7 +13,7 @@ from google.appengine.ext.webapp import blobstore_handlers
 from models import Address, Contact, User
 from operator import itemgetter
 from werkzeug.http import parse_options_header
-from wtforms.ext.appengine.ndb import model_form
+#from wtforms.ext.appengine.ndb import model_form
 from wtforms import Form
 
 

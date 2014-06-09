@@ -2,8 +2,77 @@
 
 {% block page_content %}
 
-{% if username in session: %}
-<p>Boo!<p>
+{% if 'username' in session: %}
+    {% if report: %}
+    <div class="row">
+        <div class="col-md-12">
+            <h3>Your progress:</h3>
+            <p class="text-muted">
+            {{ report }}
+            </p>
+        </div>
+    </div>
+    {% endif %}
+    {% if workouts: %}
+        {% for workout in workouts %}
+        <div class="row">
+        <div class="col-md-10">
+        <div class="panel panel-default">
+            <div class="panel-heading">
+                <h4><strong>{{ workout['name'] }}</strong></h4>
+                <p>
+                    <a href="#" class="glyphicon glyphicon-pencil">Edit</a>
+                    <a href="#" class="glyphicon glyphicon-trash">Delete</a>
+                </p>
+            </div>
+            <div class="panel-heading">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Exercise</th>
+                                <th>Reps</th>
+                                <th>Sets</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for exercise in workout['exercises'] %}
+                            <tr>
+                                <td>{{ exercise['exercise'] }}</td>
+                                <td>{{ exercise['reps'] }}</td>
+                                <td>{{ exercise['sets'] }}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% if photo_url in workout: %}
+        <div>
+            <img class="img-responsive img-thumbnail" src="{{ workout['photo_url'] }}" alt="photo of {{ workout['name'] }}">
+        </div>
+        {% endif %}
+        {% if text in workout: %}
+        <div>
+            <p>{{ workout['text'] }}</p>
+        </div>
+        {% endif %}
+        </div>
+        </div>
+        {% endfor %}
+    {% else %}
+<div class="jumbotron">
+    <h1>Welcome to cloudendar!</h1>
+    <p class="text-muted">
+        You have no workouts set up.
+    </p>
+    <p>
+    <a class="btn btn-lg btn-primary" role="button" href="{{ url_for('add_workout') }}">Add a workout</a>
+    <a class="btn btn-lg btn-primary" role="button" href="{{ url_for('add_stats') }}">Edit your stats</a>
+    </p>
+</div>
+    {% endif %}
 {% else %}
 <div class="jumbotron">
     <h1>Welcome to cloudendar!</h1>
@@ -12,8 +81,8 @@
         your meetings.
     </p>
     <p>
-        <a class="btn btn-lg btn-primary" role="button" href="/login">Log in</a>
-        <a class="btn btn-lg btn-primary" role="button" href="/signup">Sign up</a>
+    <a class="btn btn-lg btn-primary" role="button" href="{{ url_for('login') }}">Log in</a>
+    <a class="btn btn-lg btn-primary" role="button" href="{{ url_for('signup') }}">Sign up</a>
     </p>
 </div>
 {% endif %}

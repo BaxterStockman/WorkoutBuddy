@@ -1,0 +1,4 @@
+cron:
+- description:  analysis of workouts
+  url:        /tasks/analyze
+  schedule:   every 24 hours

@@ -14,7 +14,6 @@ from flask import (
     url_for,
     redirect,
     render_template,
-    Response,
 )
 from flask.ext.bootstrap import Bootstrap, WebCDN
 from flask.sessions import SessionInterface
@@ -79,15 +78,11 @@ def index():
     username = session.get('username')
     user_key_str = session.get('user_key_str')
     workouts = None
-    report = None
 
     if user_key_str is not None:
         workouts = refresh_workout_dict(user_key_str)
-        user = get_current_user()
-        report = user.report
 
-
-    return flask.render_template('index.html', workouts=workouts, report=report)
+    return flask.render_template('index.html', workouts=workouts)
 
 
 @app.route('/login', methods=["GET", "POST"])
@@ -162,10 +157,6 @@ def add_workout():
     # ?
     upload_url = blobstore.create_upload_url(url_for('add_workout'))
     #print(upload_url)
-    print("UPLOAD URL: {}".format(upload_url))
-    for item in request.files:
-        print("FILE ITEM: {0}".format(pprint.pformat(item)))
-        print("FILE HEADERS: {0}".format(pprint.pformat(item)))
 
     if form.validate_on_submit():
         photo_url, blob_key = get_photo_url_and_blob_key()
@@ -209,27 +200,20 @@ def add_stats():
         print(stats_dict)
         session['stats'] = stats_dict
 
-        user = get_current_user()
-
+        #user = User.query(ndb.Key(urlsafe=user_key_str)).get()
+        user_id = ndb.Key(urlsafe=user_key_str).id()
+        print(user_id)
+        user = User.get_by_id(user_id)
         if user is None:
-            flask.flash("You are not current logged in.", 'warning')
-            return flask.redirect(flask.url_for('index'))
-
-        if user.starting_stats is None:
-            user.starting_stats = stats
-        user.current_stats = stats
-        user.put()
-
+            print("NOOOOOOOO")
 
         flask.flash("Successfully updated your stats.")
         return flask.redirect(flask.url_for('index'))
     return flask.render_template('basic_form.html', header='Update your stats', form=form)
 
 
-@app.route('/upload', methods=["POST"])
-def upload():
-    failed = False
-
+@app.route('/upload/<username>', methods=["POST"])
+def upload(username):
     if hasattr(request, 'files'):
         print("GOT FILES!")
 
@@ -237,59 +221,7 @@ def upload():
     data = request.get_json(force=True)
     for k, v in data.iteritems():
         print("{0}: {1}".format(k, v))
-
-    # So very, very insecure
-    username = data.get('username')
-    password = data.get('password')
-
-    user = query_user(username, password)
-
-    if user is None:
-        return redirect(url_for('page_unauthorized'), 'No such user')
-
-    action = data.get('action')
-
-    user_key = user.key
-
-    if action == 'workout':
-        photo_url, blob_key = get_photo_url_and_blob_key()
-        try:
-            workout_dict = data.get('workout')
-            new_workout = Workout(
-                user_key = user_key,
-                name = workout_dict.get('name'),
-                blob_key = blob_key,
-                photo_url = photo_url,
-                text = workout_dict.get('text'),
-                exercises = workout_dict.get('exercises')
-            )
-            new_workout.put()
-        except:
-            print("Failed to create new workout: {0}".format(sys.exc_info()[0]))
-            failed = True
-    elif action == 'stats':
-        try:
-            stats_dict = data.get('stats')
-            new_stats = Stats(
-                user_key = user_key,
-                weight = stats_dict.get('weight'),
-                height_inches = stats_dict.get('height_inches'),
-                height_feet = stats_dict.get('height_feet'),
-                body_fat = stats_dict.get('body_fat'),
-            )
-            new_stats.put()
-        except:
-            print("Failed to create new workout: {0}".format(sys.exc_info()[0]))
-            failed = True
-    else:
-        return redirect(url_for('page_unauthorized'), 'No such operation')
-
-
-    if failed:
-        return "failed"
-    return "success"
-
-
+    return "Hello, world!"
 
 
 @app.route('/analyze')
@@ -309,29 +241,25 @@ def analyze():
         if current_stats is None or starting_stats is None:
             break
 
-        current_bmi = current_stats._calc_bmi()
-        starting_bmi = starting_stats._calc_bmi()
-
         if(current_stats.weight <= starting_stats.weight):
             weight_report = "You have lost {0} pounds.".format(starting_stats.weight - current_stats.weight)
         else:
             weight_report = "You have gained {0} pounds.".format(current_stats.weight - starting_stats.weight)
 
-        if(current_bmi <= starting_bmi):
-            bmi_report = "Your body mass has decreased by {0}.".format(starting_bmi - current_bmi)
+        if(current_stats.bmi <= starting_stats.bmi):
+            bmi_report = "Your body mass has decreased by {0}.".format(starting_stats.bmi - current_stats.bmi)
         else:
-            bmi_report = "Your body mass has increased by {0}.".format(current_bmi - starting_bmi)
+            bmi_report = "Your body mass has increased by {0}.".format(current_stats.bmi - starting_stats.bmi)
 
         if(current_stats.body_fat <= starting_stats.body_fat):
             body_fat_report = "You have lost {0} percent body fat.".format(starting_stats.body_fat - current_stats.body_fat)
         else:
             body_fat_report = "You have gained {0} percent body fat.".format(current_stats.body_fat - starting_stats.body_fat)
 
-        report = '  '.join([weight_report, bmi_report, body_fat_report])
+        report = join('  ', [weight_report, bmi_report, body_fat_report])
 
-        user.report = report
-        user.put()
-    return redirect(url_for('index'))
+        print(report)
+    return "finished"
 
 
 @app.route('/test', methods=["GET", "POST"])
@@ -342,10 +270,6 @@ def test():
         return "Sorry!"
     return ret
 
-
-@app.errorhandler(401)
-def page_unauthorized(e):
-    return Response(e, 401, {'WWWAuthenticate':'Basic realm="Login Required"'})
 
 @app.errorhandler(404)
 def page_not_found(e):
@@ -362,16 +286,13 @@ def get_photo_url_and_blob_key():
     blob_key = None
 
     if 'photo' in request.files:
-        photo = request.files['photo']
+        photo = request['photo']
         parsed_ct = parse_options_header(photo.content_type)
-        print("CONTENT-TYPE: {0}".format(photo.content_type))
-        print("PARSED_CT: {0}".format(parsed_ct))
         try:
             blob_key = parsed_ct[1]['blob-key']
-            print(blob_key)
             photo_url = get_serving_url(blob_key)
         except:
-            print("Failed to obtain photo url: {0}".format(sys.exc_info()[0]))
+            pass
 
     return photo_url, blob_key
 
@@ -431,9 +352,9 @@ def stats_to_dict(stats):
         'weight': stats.weight,
         'height_inches': stats.height_inches,
         'height_feet': stats.height_feet,
-        'height': stats._height_str(),
+        'height': stats.height,
         'body_fat': stats.body_fat,
-        'bmi': stats._calc_bmi(),
+        'bmi': stats.bmi,
     }
 
 
@@ -458,13 +379,8 @@ def create_user(form, current_stats=None, starting_stats=None):
 def user_to_dict(user, current_stats=None, starting_stats=None):
     if isinstance(current_stats, Stats):
         current_stats = stats_to_dict(current_stats)
-    else:
-        current_stats = user.current_stats
-
     if isinstance(starting_stats, Stats):
         starting_stats = stats_to_dict(starting_stats)
-    else:
-        starting_stats = user.starting_stats
 
     return {
         'username': user.username,
@@ -472,8 +388,8 @@ def user_to_dict(user, current_stats=None, starting_stats=None):
         'height': user.height,
         'body_fat': user.body_fat,
         'bmi': user.bmi,
-        'current_stats': stats_to_dict(current_stats),
-        'starting_stats': stats_to_dict(starting_stats),
+        'current_stats': user.current_stats,
+        'starting_stats': user.starting_stats,
     }
 
 
@@ -509,18 +425,3 @@ def print_form_data(form, print_type=False):
         else:
             print("{0}".format(field.data))
 
-def get_current_user(user_key_str=None):
-    user_key_str = user_key_str or session.get('user_key_str')
-    if user_key_str is None:
-        return None
-
-    # Get the user by converting the urlsafe key to ndb key, then pulling id
-    try:
-        user_id = ndb.Key(urlsafe=user_key_str).id()
-        return User.get_by_id(user_id)
-    except:
-        print("Failed to source user: {0}".format(sys.exc_info()[0]))
-        return None
-
-def query_user(username, password):
-    return User.query(User.username == username).filter(User.password == password).get()

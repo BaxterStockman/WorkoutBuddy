@@ -10,6 +10,10 @@ handlers:
 - url:          /static
   static_dir:   static
 
+- url:          /tasks/analyze
+  script:       main.app
+  login:        admin
+
 - url:          /.*
   script:       main.app
 

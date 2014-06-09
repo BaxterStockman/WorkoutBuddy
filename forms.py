@@ -1,6 +1,13 @@
+import simplejson as json
+
 from cgi import escape
+from datetime import date
+from dateutil.relativedelta import relativedelta
 from flask.ext.wtf import Form
 from wtforms import (
+    DecimalField,
+    FileField,
+    FloatField,
     HiddenField,
     PasswordField,
     RadioField,
@@ -16,6 +23,9 @@ from wtforms.validators import (
     InputRequired,
     Email,
     EqualTo,
+    NumberRange,
+    Optional,
+    Regexp,
     ValidationError,
 )
 from wtforms.widgets import html_params, HiddenInput, HTMLString
@@ -69,24 +79,6 @@ class DateTimePickerField(DateTimeField):
         return super(DateTimePickerField, self).__call__(class_="datetimepicker", **kwargs)
 
 
-class LoginForm(Form):
-    username = StringField('Username', [InputRequired(message="Please provide your username")])
-    password = PasswordField('Password', [InputRequired(message="Please provide your password")])
-    submit = SubmitField('Login')
-
-
-class SignupForm(Form):
-    email = StringField('Email', [Email(message="That's not a valid email address"),
-                                  InputRequired()])
-    username = StringField('Username', [InputRequired(message="Please provide a username")])
-    password = PasswordField(
-        'Password',
-        [InputRequired("Please provide a password"),
-         EqualTo('check_password', message="Passwords must match")])
-    check_password = PasswordField('Re-enter password')
-    submit = SubmitField('Sign up')
-
-
 # Adapted from http://wtforms.readthedocs.org/en/latest/widgets.html
 def select_multi_checkbox(field, ul_class='', ul_role='', **kwargs):
     kwargs.setdefault('type', 'checkbox')
@@ -101,6 +93,7 @@ def select_multi_checkbox(field, ul_class='', ul_role='', **kwargs):
         html.append(u'<label for="%s">%s</label></li>' % (field_id, label))
     html.append(u'</ul>')
     return u''.join(html)
+
 
 class HiddenListField(HiddenField):
     widget = HiddenInput()
@@ -130,3 +123,76 @@ class HiddenListField(HiddenField):
             if lc_item not in d:
                 d[lc_item] = True
                 yield item
+
+
+class HiddenJsonField(HiddenField):
+    widget = HiddenInput()
+
+    def __init__(self, label='', validators=None, **kwargs):
+        super(HiddenJsonField, self).__init__(label, validators, **kwargs)
+
+    def _value(self):
+        if self.data:
+            return self.data
+        else:
+            return None
+
+    def process_formdata(self, json_string):
+        self.data = json.loads(json_string[0])
+
+
+class SelectIntField(SelectField):
+    def process_formdata(self, data):
+        self.data = int(data[0])
+
+
+class LoginForm(Form):
+    username = StringField('Username', [InputRequired(message="Please provide your username")])
+    password = PasswordField('Password', [InputRequired(message="Please provide your password")])
+    commit = SubmitField('Login')
+
+
+class SignupForm(Form):
+    email = StringField('Email', [Email(message="That's not a valid email address"),
+                                  InputRequired()])
+    username = StringField('Username', [InputRequired(message="Please provide a username")])
+    password = PasswordField(
+        'Password',
+        [InputRequired("Please provide a password"),
+         EqualTo('check_password', message="Passwords must match")])
+    check_password = PasswordField('Re-enter password')
+    commit = SubmitField('Sign up')
+
+
+class StatsForm(Form):
+    date = DateTimePickerField('Date',
+                          validators=[InputRequired()],
+                          default=date.today() + relativedelta(hour=12),
+                          )
+    weight = FloatField('Weight')
+    """
+    height_feet = SelectField('Height in feet',
+                              choices=[(str(x), str(x)) for x in range(0, 13)])
+    height_inches = SelectField('Height in inches',
+                                choices=[(str(x), str(x)) for x in range(0, 13)])
+    """
+    height_feet = SelectIntField('Height in feet',
+                              choices=[(x, x) for x in range(0, 13)])
+    height_inches = SelectIntField('Height in inches',
+                                choices=[(x, x) for x in range(0, 13)])
+    body_fat = FloatField('Body fat percentage',
+                            validators=[NumberRange(min=0, max=100,
+                                                    message="Body fat range must be from 0 to 100 percent")])
+    commit = SubmitField('Update stats')
+
+
+class WorkoutForm(Form):
+    name = StringField('Workout name', [InputRequired(message="Please provide your username")])
+    workout_set = HiddenJsonField('Sets')
+    workout_text = TextAreaField('Workout text')
+    photo = FileField('Photo of workout regime')
+    """
+    photo = FileField('Photo of workout regime',
+                      [Regexp('\Aimage/', message="That's not an image file"), Optional()])
+    """
+    commit = SubmitField('Update stats')

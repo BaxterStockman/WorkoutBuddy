@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block page_content %}
+{{ macros.page_header(header) }}
+
+<div class="row">
+    <div class="col-md-12">
+        {{ wtf.quick_form(form, form_type="horizontal", horizontal_columns=('md', 2, 10), button_map={'commit': "primary"}) }}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block styles %}
+{{ super() }}
+<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='lib/datetimepicker/jquery.datetimepicker.css')}}'>
+<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='assets/css/typeahead.css')}}'>
+<link rel='stylesheet' type='text/css' href='{{ url_for('static', filename='assets/css/search.css')}}'>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script type='text/javascript' src='{{url_for('static', filename='lib/datetimepicker/jquery.datetimepicker.js')}}'></script>
+<script type="text/javascript">
+(function($, document, window) {
+    $(document).ready(function() {
+        $("#date").datetimepicker();
+    });
+})(jQuery, document, window);
+</script>
+{% endblock %}
